@@ -1,0 +1,59 @@
+
+name: Build GOLD FREQUENCY PRO APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Extract project
+        run: |
+          mkdir -p extracted
+          ZIP_FILE=$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No ZIP file found!"
+            exit 1
+          fi
+          echo "Extracting: $ZIP_FILE"
+          unzip -q "$ZIP_FILE" -d extracted
+
+      - name: Find Gradle project
+        run: |
+          GRADLE_FILE=$(find extracted -type f -name gradlew | head -n 1)
+          if [ -z "$GRADLE_FILE" ]; then
+            echo "Gradle wrapper not found!"
+            find extracted -maxdepth 4 -type f
+            exit 1
+          fi
+          echo "PROJECT_DIR=$(dirname "$GRADLE_FILE")" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        run: |
+          cd "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GOLD-FREQUENCY-PRO-APK
+          path: extracted/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
